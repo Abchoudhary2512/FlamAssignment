@@ -2,10 +2,6 @@
 #include <android/log.h>
 #include "image_processor.h"
 
-#define LOG_TAG "JNIBridge"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-
 extern "C" {
 
 JNIEXPORT void JNICALL
@@ -21,7 +17,7 @@ Java_com_example_assignmentflamrnd_jni_FrameProcessor_processFrame(JNIEnv *env, 
                                                            jint gaussianKernelSize,
                                                            jint thresholdValue,
                                                            jint thresholdMaxValue) {
-    try {
+
         jbyte* inputPtr = env->GetByteArrayElements(inputFrame, nullptr);
         jbyte* outputPtr = env->GetByteArrayElements(outputFrame, nullptr);
 
@@ -42,11 +38,7 @@ Java_com_example_assignmentflamrnd_jni_FrameProcessor_processFrame(JNIEnv *env, 
 
         env->ReleaseByteArrayElements(inputFrame, inputPtr, JNI_ABORT);
         env->ReleaseByteArrayElements(outputFrame, outputPtr, 0);
-    } catch (const cv::Exception& e) {
-        LOGE("OpenCV error in JNI: %s", e.what());
-    } catch (...) {
-        LOGE("Unknown error in JNI processFrame");
-    }
+
 }
 
 } // extern "C" 

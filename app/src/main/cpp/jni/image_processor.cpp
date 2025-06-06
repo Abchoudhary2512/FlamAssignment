@@ -1,10 +1,6 @@
 #include "image_processor.h"
 #include <android/log.h>
 
-#define LOG_TAG "ImageProcessor"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-
 namespace image_processor {
 
 void applyCanny(cv::Mat& input, cv::Mat& output, int lowThreshold, int highThreshold, 
@@ -31,7 +27,7 @@ void processFrame(cv::Mat& input, cv::Mat& output, int filterType,
                  int cannyLowThreshold, int cannyHighThreshold, int cannyBlurAmount, int cannyApertureSize,
                  int gaussianKernelSize,
                  int thresholdValue, int thresholdMaxValue) {
-    try {
+
         switch (filterType) {
             case FILTER_CANNY:
                 applyCanny(input, output, cannyLowThreshold, cannyHighThreshold, 
@@ -51,11 +47,6 @@ void processFrame(cv::Mat& input, cv::Mat& output, int filterType,
         if (output.channels() != 4) {
             cv::cvtColor(output, output, cv::COLOR_BGR2RGBA);
         }
-    } catch (const cv::Exception& e) {
-        LOGE("OpenCV error: %s", e.what());
-    } catch (...) {
-        LOGE("Unknown error in processFrame");
     }
-}
 
 } // namespace image_processor 
