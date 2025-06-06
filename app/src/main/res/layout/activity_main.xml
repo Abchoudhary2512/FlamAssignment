@@ -22,21 +22,7 @@
         android:background="#80000000"
         android:layout_gravity="bottom">
 
-        <Button
-            android:id="@+id/btnNone"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_margin="4dp"
-            android:text="None" />
 
-        <Button
-            android:id="@+id/btnGrayscale"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_margin="4dp"
-            android:text="Gray" />
 
         <Button
             android:id="@+id/btnCanny"

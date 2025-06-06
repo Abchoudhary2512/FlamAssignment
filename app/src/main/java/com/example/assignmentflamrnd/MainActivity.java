@@ -48,6 +48,8 @@ public class MainActivity extends AppCompatActivity {
     private TextureView textureView;
     private GLRenderer glRenderer;
     private GLSurfaceView glSurfaceView;
+    private int frameCounter = 0;
+    private static final int FRAME_SKIP = 2; // Process every 2nd frame
 
     private static final int CAMERA_PERMISSION_REQUEST = 200;
     private static final int PREVIEW_WIDTH = 1280;
@@ -87,16 +89,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupFilterButtons() {
-        binding.btnNone.setOnClickListener(v -> {
-            setFilter(FrameProcessor.FILTER_NONE);
-            glSurfaceView.setVisibility(View.GONE);
-            textureView.setVisibility(View.VISIBLE);
-        });
-        binding.btnGrayscale.setOnClickListener(v -> {
-            setFilter(FrameProcessor.FILTER_GRAYSCALE);
-            glSurfaceView.setVisibility(View.VISIBLE);
-            textureView.setVisibility(View.GONE);
-        });
         binding.btnCanny.setOnClickListener(v -> {
             setFilter(FrameProcessor.FILTER_CANNY);
             glSurfaceView.setVisibility(View.VISIBLE);
@@ -106,15 +98,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setFilter(int filterType) {
         currentFilter = filterType;
-        String filterName = "None";
-        switch (filterType) {
-            case FrameProcessor.FILTER_GRAYSCALE:
-                filterName = "Grayscale";
-                break;
-            case FrameProcessor.FILTER_CANNY:
-                filterName = "Canny";
-                break;
-        }
+        String filterName = "Canny";
         Toast.makeText(this, "Filter changed to: " + filterName, Toast.LENGTH_SHORT).show();
     }
 
@@ -157,28 +141,25 @@ public class MainActivity extends AppCompatActivity {
         @Override public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {}
         @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) { return false; }
         @Override public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-            Log.d("MainActivity", "onSurfaceTextureUpdated called, filter: " + currentFilter);
-            if (currentFilter != FrameProcessor.FILTER_NONE) {
-                Bitmap bitmap = textureView.getBitmap();
-                if (bitmap != null) {
-                    int width = bitmap.getWidth();
-                    int height = bitmap.getHeight();
-                    // Fill with a red-green gradient for testing
-                    byte[] outputRGBA = new byte[width * height * 4];
-                    for (int y = 0; y < height; y++) {
-                        for (int x = 0; x < width; x++) {
-                            int i = (y * width + x) * 4;
-                            outputRGBA[i] = (byte)(x * 255 / width);   // R
-                            outputRGBA[i+1] = (byte)(y * 255 / height); // G
-                            outputRGBA[i+2] = 0;                        // B
-                            outputRGBA[i+3] = (byte)255;                // A
-                        }
-                    }
-                    Log.d("MainActivity", "Calling updateFrame: " + width + "x" + height + ", first bytes: " +
-                        (outputRGBA.length > 4 ? (outputRGBA[0] & 0xFF) + "," + (outputRGBA[1] & 0xFF) + "," + (outputRGBA[2] & 0xFF) + "," + (outputRGBA[3] & 0xFF) : "short"));
-                    glRenderer.updateFrame(outputRGBA, width, height);
-                    glSurfaceView.requestRender();
+            frameCounter++;
+            if (frameCounter % FRAME_SKIP != 0) return; // Skip this frame
+            Bitmap bitmap = textureView.getBitmap();
+            if (bitmap != null) {
+                int width = bitmap.getWidth();
+                int height = bitmap.getHeight();
+                byte[] inputRGBA = new byte[width * height * 4];
+                byte[] outputRGBA = new byte[width * height * 4];
+                int[] pixels = new int[width * height];
+                bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+                for (int i = 0; i < pixels.length; i++) {
+                    inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);     // R
+                    inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);  // G
+                    inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);         // B
+                    inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF); // A
                 }
+                frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, FrameProcessor.FILTER_CANNY);
+                glRenderer.updateFrame(outputRGBA, width, height);
+                runOnUiThread(() -> glSurfaceView.requestRender());
             }
         }
     };
