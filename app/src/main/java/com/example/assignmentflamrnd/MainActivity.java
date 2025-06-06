@@ -1,5 +1,6 @@
 package com.example.assignmentflamrnd;
-
+import com.example.assignmentflamrnd.gl.GLRenderer;
+import com.example.assignmentflamrnd.jni.FrameProcessor;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -26,6 +27,8 @@ import androidx.core.app.ActivityCompat;
 
 import com.example.assignmentflamrnd.databinding.ActivityMainBinding;
 
+
+
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,7 +37,7 @@ import android.opengl.GLSurfaceView;
 public class MainActivity extends AppCompatActivity {
 
     static {
-        System.loadLibrary("assignmentflamrnd");
+        System.loadLibrary("native-lib");
     }
 
     private ActivityMainBinding binding;
@@ -45,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private HandlerThread backgroundThread;
     private ImageReader imageReader;
     private FrameProcessor frameProcessor;
-    private int currentFilter = FrameProcessor.FILTER_NONE;
+    private int currentFilter = 0; // FILTER_NONE
     private final AtomicBoolean isProcessing = new AtomicBoolean(false);
     private TextureView textureView;
     private GLRenderer glRenderer;
@@ -58,7 +61,6 @@ public class MainActivity extends AppCompatActivity {
     private static final int PREVIEW_HEIGHT = 720;
     private static final String TAG = "MainActivity";
 
-    private boolean showRaw = false;
     private long lastFrameTime = 0;
     private int frames = 0;
     private double fps = 0.0;
@@ -85,41 +87,6 @@ public class MainActivity extends AppCompatActivity {
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
         glSurfaceView.setVisibility(View.GONE);
 
-        // Toggle button logic
-        Button btnToggleMode = findViewById(R.id.btnToggleMode);
-        btnToggleMode.setOnClickListener(v -> {
-            showRaw = !showRaw;
-            if (showRaw) {
-                glSurfaceView.setVisibility(View.GONE);
-                textureView.setVisibility(View.VISIBLE);
-                btnToggleMode.setText("Show Edges");
-            } else {
-                glSurfaceView.setVisibility(View.VISIBLE);
-                textureView.setVisibility(View.GONE);
-                btnToggleMode.setText("Show Raw");
-
-                // Immediately process and show the latest frame
-                Bitmap bitmap = textureView.getBitmap();
-                if (bitmap != null) {
-                    int width = bitmap.getWidth();
-                    int height = bitmap.getHeight();
-                    byte[] inputRGBA = new byte[width * height * 4];
-                    byte[] outputRGBA = new byte[width * height * 4];
-                    int[] pixels = new int[width * height];
-                    bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-                    for (int i = 0; i < pixels.length; i++) {
-                        inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);     // R
-                        inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);  // G
-                        inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);         // B
-                        inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF); // A
-                    }
-                    frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, FrameProcessor.FILTER_CANNY);
-                    glRenderer.updateFrame(outputRGBA, width, height);
-                    runOnUiThread(() -> glSurfaceView.requestRender());
-                }
-            }
-        });
-
         // FPS counter
         TextView fpsCounter = findViewById(R.id.fpsCounter);
         lastFrameTime = System.currentTimeMillis();
@@ -134,31 +101,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupFilterButtons() {
-        // Only Canny filter, but keep for compatibility
-        // You can remove this if you want, since toggle is now the main control
+        findViewById(R.id.btnRaw).setOnClickListener(v -> {
+            glSurfaceView.setVisibility(View.GONE);
+            textureView.setVisibility(View.VISIBLE);
+            currentFilter = 0; // FILTER_NONE
+        });
         findViewById(R.id.btnCanny).setOnClickListener(v -> {
-            showRaw = false;
             glSurfaceView.setVisibility(View.VISIBLE);
             textureView.setVisibility(View.GONE);
-            Button btnToggleMode = findViewById(R.id.btnToggleMode);
-            btnToggleMode.setText("Show Raw");
-            processAndShowCurrentFrame(FrameProcessor.FILTER_CANNY);
+            currentFilter = 1; // FILTER_CANNY
+            processAndShowCurrentFrame(currentFilter);
         });
         findViewById(R.id.btnGaussian).setOnClickListener(v -> {
-            showRaw = false;
             glSurfaceView.setVisibility(View.VISIBLE);
             textureView.setVisibility(View.GONE);
-            Button btnToggleMode = findViewById(R.id.btnToggleMode);
-            btnToggleMode.setText("Show Raw");
-            processAndShowCurrentFrame(FrameProcessor.FILTER_GAUSSIAN);
+            currentFilter = 2; // FILTER_GAUSSIAN_BLUR
+            processAndShowCurrentFrame(currentFilter);
         });
         findViewById(R.id.btnThreshold).setOnClickListener(v -> {
-            showRaw = false;
             glSurfaceView.setVisibility(View.VISIBLE);
             textureView.setVisibility(View.GONE);
-            Button btnToggleMode = findViewById(R.id.btnToggleMode);
-            btnToggleMode.setText("Show Raw");
-            processAndShowCurrentFrame(FrameProcessor.FILTER_THRESHOLD);
+            currentFilter = 3; // FILTER_THRESHOLD
+            processAndShowCurrentFrame(currentFilter);
         });
     }
 
@@ -238,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
                 lastFrameTime = now;
             }
 
-            if (showRaw) return; // Show only raw preview
+            if (glSurfaceView.getVisibility() == View.GONE) return; // Show only raw preview
 
             Bitmap bitmap = textureView.getBitmap();
             if (bitmap != null) {
@@ -249,12 +213,12 @@ public class MainActivity extends AppCompatActivity {
                 int[] pixels = new int[width * height];
                 bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
                 for (int i = 0; i < pixels.length; i++) {
-                    inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);     // R
-                    inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);  // G
-                    inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);         // B
-                    inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF); // A
+                    inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);
+                    inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);
+                    inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);
+                    inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF);
                 }
-                frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, FrameProcessor.FILTER_CANNY);
+                frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, currentFilter);
                 glRenderer.updateFrame(outputRGBA, width, height);
                 runOnUiThread(() -> glSurfaceView.requestRender());
             }
@@ -267,38 +231,31 @@ public class MainActivity extends AppCompatActivity {
             texture.setDefaultBufferSize(PREVIEW_WIDTH, PREVIEW_HEIGHT);
             Surface surface = new Surface(texture);
 
-            // Create ImageReader for processing if needed (optional)
-            // imageReader = ImageReader.newInstance(PREVIEW_WIDTH, PREVIEW_HEIGHT, ImageFormat.YUV_420_888, 2);
-            // imageReader.setOnImageAvailableListener(imageAvailableListener, backgroundHandler);
-
             captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             captureRequestBuilder.addTarget(surface);
-            // captureRequestBuilder.addTarget(imageReader.getSurface()); // Optional
 
-            cameraDevice.createCaptureSession(
-                Arrays.asList(surface),
-                new CameraCaptureSession.StateCallback() {
-                    @Override
-                    public void onConfigured(@NonNull CameraCaptureSession session) {
-                        cameraCaptureSession = session;
-                        try {
-                            captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                            captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
-                                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
-                            cameraCaptureSession.setRepeatingRequest(captureRequestBuilder.build(),
-                                    null, backgroundHandler);
-                        } catch (CameraAccessException e) {
-                            e.printStackTrace();
+            cameraDevice.createCaptureSession(Arrays.asList(surface),
+                    new CameraCaptureSession.StateCallback() {
+                        @Override
+                        public void onConfigured(@NonNull CameraCaptureSession session) {
+                            if (cameraDevice == null) return;
+                            cameraCaptureSession = session;
+                            try {
+                                captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                cameraCaptureSession.setRepeatingRequest(captureRequestBuilder.build(),
+                                        null, backgroundHandler);
+                            } catch (CameraAccessException e) {
+                                e.printStackTrace();
+                            }
                         }
-                    }
-                    @Override
-                    public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                        Toast.makeText(MainActivity.this, "Configuration failed", Toast.LENGTH_SHORT).show();
-                    }
-                },
-                backgroundHandler
-            );
+
+                        @Override
+                        public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+                            Toast.makeText(MainActivity.this, "Configuration change failed",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }, null);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -308,36 +265,45 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         startBackgroundThread();
+        if (textureView.isAvailable()) {
+            openCamera();
+        } else {
+            textureView.setSurfaceTextureListener(textureListener);
+        }
     }
 
     @Override
     protected void onPause() {
-        if (cameraDevice != null) {
-            cameraDevice.close();
-        }
-        if (imageReader != null) {
-            imageReader.close();
-        }
+        closeCamera();
         stopBackgroundThread();
         super.onPause();
     }
 
     private void startBackgroundThread() {
-        backgroundThread = new HandlerThread("Camera Background");
+        backgroundThread = new HandlerThread("CameraBackground");
         backgroundThread.start();
         backgroundHandler = new Handler(backgroundThread.getLooper());
     }
 
     private void stopBackgroundThread() {
-        if (backgroundThread != null) {
-            backgroundThread.quitSafely();
-            try {
-                backgroundThread.join();
-                backgroundThread = null;
-                backgroundHandler = null;
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        backgroundThread.quitSafely();
+        try {
+            backgroundThread.join();
+            backgroundThread = null;
+            backgroundHandler = null;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void closeCamera() {
+        if (cameraCaptureSession != null) {
+            cameraCaptureSession.close();
+            cameraCaptureSession = null;
+        }
+        if (cameraDevice != null) {
+            cameraDevice.close();
+            cameraDevice = null;
         }
     }
 }
