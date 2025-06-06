@@ -17,6 +17,8 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Toast;
+import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -56,6 +58,11 @@ public class MainActivity extends AppCompatActivity {
     private static final int PREVIEW_HEIGHT = 720;
     private static final String TAG = "MainActivity";
 
+    private boolean showRaw = false;
+    private long lastFrameTime = 0;
+    private int frames = 0;
+    private double fps = 0.0;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -78,28 +85,84 @@ public class MainActivity extends AppCompatActivity {
         glSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
         glSurfaceView.setVisibility(View.GONE);
 
+        // Toggle button logic
+        Button btnToggleMode = findViewById(R.id.btnToggleMode);
+        btnToggleMode.setOnClickListener(v -> {
+            showRaw = !showRaw;
+            if (showRaw) {
+                glSurfaceView.setVisibility(View.GONE);
+                textureView.setVisibility(View.VISIBLE);
+                btnToggleMode.setText("Show Edges");
+            } else {
+                glSurfaceView.setVisibility(View.VISIBLE);
+                textureView.setVisibility(View.GONE);
+                btnToggleMode.setText("Show Raw");
+
+                // Immediately process and show the latest frame
+                Bitmap bitmap = textureView.getBitmap();
+                if (bitmap != null) {
+                    int width = bitmap.getWidth();
+                    int height = bitmap.getHeight();
+                    byte[] inputRGBA = new byte[width * height * 4];
+                    byte[] outputRGBA = new byte[width * height * 4];
+                    int[] pixels = new int[width * height];
+                    bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+                    for (int i = 0; i < pixels.length; i++) {
+                        inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);     // R
+                        inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);  // G
+                        inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);         // B
+                        inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF); // A
+                    }
+                    frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, FrameProcessor.FILTER_CANNY);
+                    glRenderer.updateFrame(outputRGBA, width, height);
+                    runOnUiThread(() -> glSurfaceView.requestRender());
+                }
+            }
+        });
+
+        // FPS counter
+        TextView fpsCounter = findViewById(R.id.fpsCounter);
+        lastFrameTime = System.currentTimeMillis();
+
         // Setup filter buttons
         setupFilterButtons();
-
-        // Ask for permission if not granted
+        textureView.setSurfaceTextureListener(textureListener);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 200);
         }
     }
 
     private void setupFilterButtons() {
-        binding.btnCanny.setOnClickListener(v -> {
-            setFilter(FrameProcessor.FILTER_CANNY);
+        // Only Canny filter, but keep for compatibility
+        // You can remove this if you want, since toggle is now the main control
+        findViewById(R.id.btnCanny).setOnClickListener(v -> {
+            showRaw = false;
             glSurfaceView.setVisibility(View.VISIBLE);
             textureView.setVisibility(View.GONE);
-        });
-    }
+            Button btnToggleMode = findViewById(R.id.btnToggleMode);
+            btnToggleMode.setText("Show Raw");
 
-    private void setFilter(int filterType) {
-        currentFilter = filterType;
-        String filterName = "Canny";
-        Toast.makeText(this, "Filter changed to: " + filterName, Toast.LENGTH_SHORT).show();
+            // Immediately process and show the latest frame
+            Bitmap bitmap = textureView.getBitmap();
+            if (bitmap != null) {
+                int width = bitmap.getWidth();
+                int height = bitmap.getHeight();
+                byte[] inputRGBA = new byte[width * height * 4];
+                byte[] outputRGBA = new byte[width * height * 4];
+                int[] pixels = new int[width * height];
+                bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+                for (int i = 0; i < pixels.length; i++) {
+                    inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);     // R
+                    inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);  // G
+                    inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);         // B
+                    inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF); // A
+                }
+                frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, FrameProcessor.FILTER_CANNY);
+                glRenderer.updateFrame(outputRGBA, width, height);
+                runOnUiThread(() -> glSurfaceView.requestRender());
+            }
+        });
     }
 
     private void openCamera() {
@@ -143,6 +206,22 @@ public class MainActivity extends AppCompatActivity {
         @Override public void onSurfaceTextureUpdated(SurfaceTexture surface) {
             frameCounter++;
             if (frameCounter % FRAME_SKIP != 0) return; // Skip this frame
+
+            // FPS calculation
+            frames++;
+            long now = System.currentTimeMillis();
+            if (now - lastFrameTime >= 1000) {
+                fps = frames * 1000.0 / (now - lastFrameTime);
+                runOnUiThread(() -> {
+                    TextView fpsCounter = findViewById(R.id.fpsCounter);
+                    fpsCounter.setText(String.format("FPS: %.1f", fps));
+                });
+                frames = 0;
+                lastFrameTime = now;
+            }
+
+            if (showRaw) return; // Show only raw preview
+
             Bitmap bitmap = textureView.getBitmap();
             if (bitmap != null) {
                 int width = bitmap.getWidth();

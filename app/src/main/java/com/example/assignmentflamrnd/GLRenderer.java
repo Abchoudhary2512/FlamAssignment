@@ -28,6 +28,27 @@ public class GLRenderer implements GLSurfaceView.Renderer {
             "void main() {\n" +
             "    gl_FragColor = texture2D(uTexture, vTexCoord);\n" +
             "}";
+    private static final String FRAGMENT_SHADER_GRAYSCALE =
+            "precision mediump float;\n" +
+            "varying vec2 vTexCoord;\n" +
+            "uniform sampler2D uTexture;\n" +
+            "void main() {\n" +
+            "    vec4 color = texture2D(uTexture, vTexCoord);\n" +
+            "    float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));\n" +
+            "    gl_FragColor = vec4(gray, gray, gray, color.a);\n" +
+            "}";
+    private static final String FRAGMENT_SHADER_INVERT =
+            "precision mediump float;\n" +
+            "varying vec2 vTexCoord;\n" +
+            "uniform sampler2D uTexture;\n" +
+            "void main() {\n" +
+            "    vec4 color = texture2D(uTexture, vTexCoord);\n" +
+            "    gl_FragColor = vec4(1.0 - color.rgb, color.a);\n" +
+            "}";
+    public static final int FILTER_NONE = 0;
+    public static final int FILTER_GRAYSCALE = 1;
+    public static final int FILTER_INVERT = 2;
+    private int filterMode = FILTER_NONE;
     private FloatBuffer vertexBuffer, texCoordBuffer;
     private int program;
     private int textureId = -1;
@@ -187,6 +208,18 @@ public class GLRenderer implements GLSurfaceView.Renderer {
         int error;
         while ((error = GLES20.glGetError()) != GLES20.GL_NO_ERROR) {
             Log.e(TAG, op + ": glError " + error);
+        }
+    }
+
+    public void setFilterMode(int mode) {
+        filterMode = mode;
+        // Recompile shader based on filter mode
+        if (mode == FILTER_GRAYSCALE) {
+            program = createProgram(VERTEX_SHADER, FRAGMENT_SHADER_GRAYSCALE);
+        } else if (mode == FILTER_INVERT) {
+            program = createProgram(VERTEX_SHADER, FRAGMENT_SHADER_INVERT);
+        } else {
+            program = createProgram(VERTEX_SHADER, FRAGMENT_SHADER);
         }
     }
 }
