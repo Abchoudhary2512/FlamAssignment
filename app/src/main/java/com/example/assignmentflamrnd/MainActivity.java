@@ -140,23 +140,33 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "processAndShowCurrentFrame called with filterType: " + filterType);
         Bitmap bitmap = textureView.getBitmap();
         if (bitmap != null) {
-            int width = bitmap.getWidth();
-            int height = bitmap.getHeight();
+            // Ensure we're using the preview dimensions
+            int width = PREVIEW_WIDTH;
+            int height = PREVIEW_HEIGHT;
+            
+            // Create a scaled bitmap to match preview dimensions
+            Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
+            
             byte[] inputRGBA = new byte[width * height * 4];
             byte[] outputRGBA = new byte[width * height * 4];
             int[] pixels = new int[width * height];
-            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            scaledBitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            
             for (int i = 0; i < pixels.length; i++) {
                 inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);
                 inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);
                 inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);
                 inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF);
             }
-            Log.d(TAG, "Calling frameProcessor.processFrame");
+            
+            Log.d(TAG, "Calling frameProcessor.processFrame with dimensions: " + width + "x" + height);
             frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, filterType);
             Log.d(TAG, "Updating GLRenderer with processed frame");
             glRenderer.updateFrame(outputRGBA, width, height);
             runOnUiThread(() -> glSurfaceView.requestRender());
+            
+            // Clean up
+            scaledBitmap.recycle();
         } else {
             Log.w(TAG, "Bitmap from TextureView is null in processAndShowCurrentFrame");
         }
@@ -233,24 +243,32 @@ public class MainActivity extends AppCompatActivity {
 
             Bitmap bitmap = textureView.getBitmap();
             if (bitmap != null) {
-                int width = bitmap.getWidth();
-                int height = bitmap.getHeight();
+                // Ensure we're using the preview dimensions
+                int width = PREVIEW_WIDTH;
+                int height = PREVIEW_HEIGHT;
+                
+                // Create a scaled bitmap to match preview dimensions
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
+                
                 byte[] inputRGBA = new byte[width * height * 4];
                 byte[] outputRGBA = new byte[width * height * 4];
                 int[] pixels = new int[width * height];
-                bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+                scaledBitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+                
                 for (int i = 0; i < pixels.length; i++) {
                     inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);
                     inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);
                     inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);
                     inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF);
                 }
+                
                 Log.d(TAG, "Processing frame in onSurfaceTextureUpdated with filter: " + currentFilter);
                 frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, currentFilter);
                 glRenderer.updateFrame(outputRGBA, width, height);
                 runOnUiThread(() -> glSurfaceView.requestRender());
-            } else {
-                Log.w(TAG, "Bitmap from TextureView is null in onSurfaceTextureUpdated");
+                
+                // Clean up
+                scaledBitmap.recycle();
             }
         }
     };
