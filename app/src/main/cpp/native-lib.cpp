@@ -11,6 +11,8 @@
 #define FILTER_NONE 0
 #define FILTER_GRAYSCALE 1
 #define FILTER_CANNY 2
+#define FILTER_GAUSSIAN_BLUR 3
+#define FILTER_THRESHOLD 4
 
 extern "C" {
 
@@ -38,6 +40,13 @@ Java_com_example_assignmentflamrnd_FrameProcessor_processFrame(JNIEnv *env, jobj
             cv::cvtColor(blurred, gray, cv::COLOR_RGBA2GRAY);
             cv::Canny(gray, edges, lowThreshold, highThreshold, apertureSize);
             cv::cvtColor(edges, processedImg, cv::COLOR_GRAY2RGBA);
+        } else if (filterType == 2) { // Gaussian blur
+            cv::GaussianBlur(rgbaImg, processedImg, cv::Size(15, 15), 0);
+        } else if (filterType == 3) { // Threshold
+            cv::Mat gray, thresh;
+            cv::cvtColor(rgbaImg, gray, cv::COLOR_RGBA2GRAY);
+            cv::threshold(gray, thresh, 128, 255, cv::THRESH_BINARY);
+            cv::cvtColor(thresh, processedImg, cv::COLOR_GRAY2RGBA);
         } else {
             rgbaImg.copyTo(processedImg);
         }

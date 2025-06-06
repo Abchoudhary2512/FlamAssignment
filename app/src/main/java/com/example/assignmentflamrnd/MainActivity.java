@@ -142,27 +142,45 @@ public class MainActivity extends AppCompatActivity {
             textureView.setVisibility(View.GONE);
             Button btnToggleMode = findViewById(R.id.btnToggleMode);
             btnToggleMode.setText("Show Raw");
-
-            // Immediately process and show the latest frame
-            Bitmap bitmap = textureView.getBitmap();
-            if (bitmap != null) {
-                int width = bitmap.getWidth();
-                int height = bitmap.getHeight();
-                byte[] inputRGBA = new byte[width * height * 4];
-                byte[] outputRGBA = new byte[width * height * 4];
-                int[] pixels = new int[width * height];
-                bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
-                for (int i = 0; i < pixels.length; i++) {
-                    inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);     // R
-                    inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);  // G
-                    inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);         // B
-                    inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF); // A
-                }
-                frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, FrameProcessor.FILTER_CANNY);
-                glRenderer.updateFrame(outputRGBA, width, height);
-                runOnUiThread(() -> glSurfaceView.requestRender());
-            }
+            processAndShowCurrentFrame(FrameProcessor.FILTER_CANNY);
         });
+        findViewById(R.id.btnGaussian).setOnClickListener(v -> {
+            showRaw = false;
+            glSurfaceView.setVisibility(View.VISIBLE);
+            textureView.setVisibility(View.GONE);
+            Button btnToggleMode = findViewById(R.id.btnToggleMode);
+            btnToggleMode.setText("Show Raw");
+            processAndShowCurrentFrame(FrameProcessor.FILTER_GAUSSIAN);
+        });
+        findViewById(R.id.btnThreshold).setOnClickListener(v -> {
+            showRaw = false;
+            glSurfaceView.setVisibility(View.VISIBLE);
+            textureView.setVisibility(View.GONE);
+            Button btnToggleMode = findViewById(R.id.btnToggleMode);
+            btnToggleMode.setText("Show Raw");
+            processAndShowCurrentFrame(FrameProcessor.FILTER_THRESHOLD);
+        });
+    }
+
+    private void processAndShowCurrentFrame(int filterType) {
+        Bitmap bitmap = textureView.getBitmap();
+        if (bitmap != null) {
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
+            byte[] inputRGBA = new byte[width * height * 4];
+            byte[] outputRGBA = new byte[width * height * 4];
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            for (int i = 0; i < pixels.length; i++) {
+                inputRGBA[i * 4] = (byte) ((pixels[i] >> 16) & 0xFF);
+                inputRGBA[i * 4 + 1] = (byte) ((pixels[i] >> 8) & 0xFF);
+                inputRGBA[i * 4 + 2] = (byte) (pixels[i] & 0xFF);
+                inputRGBA[i * 4 + 3] = (byte) ((pixels[i] >> 24) & 0xFF);
+            }
+            frameProcessor.processFrame(inputRGBA, width, height, outputRGBA, filterType);
+            glRenderer.updateFrame(outputRGBA, width, height);
+            runOnUiThread(() -> glSurfaceView.requestRender());
+        }
     }
 
     private void openCamera() {

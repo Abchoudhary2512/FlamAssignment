@@ -30,6 +30,20 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Canny" />
+
+        <Button
+            android:id="@+id/btnGaussian"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Gaussian" />
+
+        <Button
+            android:id="@+id/btnThreshold"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Threshold" />
     </LinearLayout>
 
     <TextView

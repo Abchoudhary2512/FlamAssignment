@@ -9,6 +9,8 @@ public class FrameProcessor {
     // Filter type constants matching native implementation
     public static final int FILTER_NONE = 0;
     public static final int FILTER_CANNY = 1;
+    public static final int FILTER_GAUSSIAN = 2;
+    public static final int FILTER_THRESHOLD = 3;
 
     /**
      * Processes input RGBA frame and outputs processed RGBA frame.
@@ -17,7 +19,7 @@ public class FrameProcessor {
      * @param width     Frame width
      * @param height    Frame height
      * @param outputRGBA Output byte array (RGBA) - must be allocated by caller
-     * @param filterType Filter type constant (FILTER_NONE, FILTER_CANNY)
+     * @param filterType Filter type constant (FILTER_NONE, FILTER_CANNY, FILTER_GAUSSIAN, FILTER_THRESHOLD)
      */
     public native void processFrame(byte[] inputRGBA, int width, int height,
                                     byte[] outputRGBA, int filterType);
