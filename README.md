@@ -16,6 +16,8 @@
 
 
 ## Screenshots of the App
+![1749222872491](https://github.com/user-attachments/assets/a58bbe9b-53b4-4a5f-b7db-6b8d949b4ad4)
+
 ![6201968016086911496](https://github.com/user-attachments/assets/be8c39a7-2a2a-4525-953f-ee9d080508a6)
 ![6201968016086911498](https://github.com/user-attachments/assets/f7879fd2-63c1-4b75-9646-529828e77335)
 ![6201968016086911499](https://github.com/user-attachments/assets/e0791958-8681-40d2-b681-ebf667e96bd3)
